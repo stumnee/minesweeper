@@ -1,10 +1,10 @@
 class Cell {
     static w = 20
-    constructor(x, y) {
+    constructor(x, y, mine = false) {
         this.x = x;
         this.y = y;
         this.revealed = false;
-        this.mine = false;
+        this.mine = mine;
         this.nMineCount = 0;
     }
     get centerX() {

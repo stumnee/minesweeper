@@ -2,67 +2,83 @@ const grid = [];
 const mines = 20;
 const maxX = 10;
 const maxY = 10;
+const totalCells = maxY * maxX;
+const neighborsOffset = [[-1, -1], [-1, 0], [-1, 1],
+                         [ 0, -1],          [ 0, 1],
+                         [ 1, -1], [ 1, 0], [ 1, 1]];
+
+function idxToXY(i, multiplier = 1) {
+    return {x: (i % maxX) * multiplier, y: parseInt( i / maxY) * multiplier}
+}
+
+function xyToIdx(x, y, divisor = 1) {
+    return parseInt(y / divisor) *  maxY + parseInt(x / divisor);
+}
+
+function xyToCell(x, y) {
+    if (x >= 0 && x < maxX && y >= 0 && y < maxY) {
+        return grid[xyToIdx(x, y)]
+    }
+    return {}
+}
+
 function setup() {
   createCanvas(200, 200);
-  for (let y = 0; y < maxY; y ++) {
-      let row = []
-      for (let x = 0; x < maxX; x++) {
-          row.push(new Cell(x * Cell.w, y * Cell.w));
-      }
-      grid.push(row);
+
+  for (let i = 0; i < totalCells; i++) {
+      let xy = idxToXY(i, Cell.w);
+      grid.push(new Cell(xy.x, xy.y));
   }
-  minesDeployed = 0;
+
+  // Place mines
+  let i = 0;
+  let pct = 1 / totalCells;
+  let minesDeployed = 0;
   while (minesDeployed < mines) {
-      let cell = grid[Math.floor(parseInt(Math.random() * 1000)/100)][Math.floor(parseInt(Math.random() * 1000)/100)];
-      if (!cell.mine) {
-          cell.mine = true;
+      if (!grid[i].mine && Math.random() < pct) {
+          grid[i].mine = true;
           minesDeployed++;
       }
+      i++;
+      if (i === totalCells) {
+          i = 0;
+      }
   }
-    for (let y = 0; y < maxY; y ++) {
-        for (let x = 0; x < maxX; x++) {
-            let count = 0;
-            for (let dx = -1; dx <= 1; dx++) {
-                for(let dy = -1; dy <= 1; dy++) {
-                    if (x + dx >= 0 && x + dx < maxX && y + dy >= 0 && y + dy < maxY && grid[y + dy][x + dx].mine) {
-                        count++;
-                    }
-                }
-            }
-            grid[y][x].nMineCount = count;
-        }
-    }
+
+  // Calculate neighbor mine counts
+  grid.forEach((cell, idx) => {
+      let xy = idxToXY(idx)
+      cell.nMineCount = neighborsOffset.filter(offset =>
+                                                    xyToCell(xy.x + offset[0],xy.y + offset[1]).mine)
+                                        .length
+  })
 }
 
 function mouseReleased() {
-    console.log(mouseButton)
-    let x = parseInt(mouseX / Cell.w)
-    let y = parseInt(mouseY / Cell.w)
-    reveal(x, y)
+    reveal(xyToIdx(mouseX, mouseY, Cell.w))
 }
 
-function reveal(x, y) {
-    grid[y][x].reveal()
-    if (grid[y][x].nMineCount > 0 || grid[y][x].mine) {
+// reveal non mine cells in Flood Fill pattern
+function reveal(idx) {
+    grid[idx].reveal()
+    if (grid[idx].nMineCount > 0 || grid[idx].mine) {
         return;
     }
-    for (let dx = -1; dx <= 1; dx++) {
-        for(let dy = -1; dy <= 1; dy++) {
-            if (x + dx >= 0 && x + dx < maxX && y + dy >= 0 && y + dy < maxY && !grid[y + dy][x + dx].revealed && !grid[y + dy][x + dx].mine) {
-                reveal(x + dx, y + dy)
+    let xy = idxToXY(idx)
+    neighborsOffset.map(offset => [xy.x + offset[0], xy.y + offset[1]])
+        .forEach(neighborXY => {
+            let cell = xyToCell(...neighborXY)
+            if (cell.x !== undefined && !cell.revealed && !cell.mine) {
+                reveal(xyToIdx(...neighborXY))
             }
-        }
-    }
+        })
 }
 
 function draw() {
   background(0);
 
-    for (let y = 0; y < maxY; y ++) {
-        for (let x = 0; x < maxX; x++) {
-            grid[y][x].show();
-        }
-    }
+  grid.forEach(cell=>cell.show())
+
 }
 
 //disable right mouse click
